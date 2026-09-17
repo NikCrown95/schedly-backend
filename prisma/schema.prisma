@@ -1,0 +1,371 @@
+// Schedly — Database Schema
+// PostgreSQL, multi-tenant a livello di riga (business_id su ogni tabella scoped).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// AUTH / USERS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  STAFF
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+model User {
+  id             String     @id @default(uuid())
+  email          String     @unique
+  passwordHash   String     @map("password_hash")
+  firstName      String     @map("first_name")
+  lastName       String     @map("last_name")
+  phone          String?
+  role           UserRole   @default(OWNER)
+  status         UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  businesses    Business[]
+  staffProfiles StaffMember[]
+  refreshTokens RefreshToken[]
+  passwordResets PasswordResetToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  revokedAt DateTime? @map("revoked_at")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  usedAt    DateTime? @map("used_at")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────────
+// BUSINESS
+// ─────────────────────────────────────────────
+
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+  ONBOARDING
+}
+
+model Business {
+  id          String         @id @default(uuid())
+  ownerId     String         @map("owner_id")
+  name        String
+  slug        String         @unique
+  description String?
+  category    String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  postalCode  String?        @map("postal_code")
+  country     String?
+  timezone    String         @default("Europe/Rome")
+  logoUrl     String?        @map("logo_url")
+  status      BusinessStatus @default(ONBOARDING)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  owner                  User                    @relation(fields: [ownerId], references: [id])
+  staffMembers           StaffMember[]
+  services               Service[]
+  availabilityRules      AvailabilityRule[]
+  availabilityExceptions AvailabilityException[]
+  customers              Customer[]
+  appointments           Appointment[]
+  subscription           Subscription?
+  webhookEvents          WebhookEvent[]
+  notificationLogs       NotificationLog[]
+
+  @@index([ownerId])
+  @@map("businesses")
+}
+
+// Predisposto per il futuro multi-staff — non attivo nell'MVP.
+model StaffMember {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  userId     String?  @map("user_id")
+  displayName String  @map("display_name")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  business               Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user                   User?                    @relation(fields: [userId], references: [id])
+  availabilityRules      AvailabilityRule[]
+  availabilityExceptions AvailabilityException[]
+  appointments           Appointment[]
+
+  @@index([businessId])
+  @@map("staff_members")
+}
+
+// ─────────────────────────────────────────────
+// SERVICES
+// ─────────────────────────────────────────────
+
+model Service {
+  id              String   @id @default(uuid())
+  businessId      String   @map("business_id")
+  name            String
+  description     String?
+  durationMinutes Int      @map("duration_minutes")
+  priceCents      Int      @map("price_cents")
+  currency        String   @default("EUR")
+  color           String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([businessId])
+  @@map("services")
+}
+
+// ─────────────────────────────────────────────
+// AVAILABILITY
+// ─────────────────────────────────────────────
+
+// Orario ricorrente per giorno della settimana (0 = domenica ... 6 = sabato)
+model AvailabilityRule {
+  id            String   @id @default(uuid())
+  businessId    String   @map("business_id")
+  staffMemberId String?  @map("staff_member_id")
+  dayOfWeek     Int      @map("day_of_week") // 0-6
+  startTime     String   @map("start_time")  // "09:00"
+  endTime       String   @map("end_time")    // "13:00"
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, dayOfWeek])
+  @@map("availability_rules")
+}
+
+// Eccezioni: ferie, festività, chiusure straordinarie, orari speciali per una data specifica
+model AvailabilityException {
+  id            String   @id @default(uuid())
+  businessId    String   @map("business_id")
+  staffMemberId String?  @map("staff_member_id")
+  date          DateTime @db.Date
+  isClosed      Boolean  @default(true) @map("is_closed")
+  startTime     String?  @map("start_time")
+  endTime       String?  @map("end_time")
+  reason        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@map("availability_exceptions")
+}
+
+// ─────────────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────────────
+
+model Customer {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  firstName  String   @map("first_name")
+  lastName   String?  @map("last_name")
+  email      String?
+  phone      String?
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([businessId])
+  @@index([businessId, email])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────
+// APPOINTMENTS
+// ─────────────────────────────────────────────
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+// Da quale canale è arrivato l'appuntamento — fondamentale una volta collegato
+// un agente WhatsApp/AI: permette di distinguere prenotazioni fatte dal cliente
+// sul sito, quelle mediate dall'assistente, e quelle create manualmente dal
+// titolare/staff dal pannello.
+enum AppointmentSource {
+  WEBSITE
+  WHATSAPP
+  ADMIN
+}
+
+model Appointment {
+  id            String            @id @default(uuid())
+  businessId    String            @map("business_id")
+  serviceId     String            @map("service_id")
+  customerId    String            @map("customer_id")
+  staffMemberId String?           @map("staff_member_id")
+  startAt       DateTime          @map("start_at") // UTC
+  endAt         DateTime          @map("end_at")   // UTC
+  status        AppointmentStatus @default(PENDING)
+  source        AppointmentSource @default(WEBSITE)
+  // Snapshot di prezzo e durata al momento della prenotazione: l'appuntamento
+  // NON legge più questi valori dal Service corrente. Se il titolare cambia
+  // prezzo o durata di un servizio in seguito, gli appuntamenti già creati
+  // (passati o futuri) restano corretti così come erano al momento della
+  // prenotazione — indispensabile per KPI di incasso storico affidabili.
+  priceCents      Int             @map("price_cents")
+  durationMinutes Int             @map("duration_minutes")
+  notes         String?
+  cancelledAt   DateTime?         @map("cancelled_at")
+  cancelledBy   String?           @map("cancelled_by") // "business" | "customer"
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  service     Service      @relation(fields: [serviceId], references: [id])
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id])
+
+  // NB: la exclusion constraint anti-overlap (business_id/staff_member_id, tstzrange)
+  // viene aggiunta con SQL raw nella migration — vedi prisma/migrations/.../migration.sql
+  @@index([businessId, startAt])
+  @@index([businessId, status])
+  @@index([customerId])
+  @@map("appointments")
+}
+
+// ─────────────────────────────────────────────
+// SUBSCRIPTIONS / BILLING
+// ─────────────────────────────────────────────
+
+enum SubscriptionPlan {
+  TRIAL
+  PRO
+  BUSINESS
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  businessId           String             @unique @map("business_id")
+  plan                 SubscriptionPlan   @default(TRIAL)
+  status               SubscriptionStatus @default(TRIALING)
+  trialEndsAt          DateTime?          @map("trial_ends_at")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  stripeCustomerId     String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// Idempotenza sui webhook (Stripe può reinviare lo stesso evento più volte)
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  businessId  String?  @map("business_id")
+  provider    String   // "stripe"
+  eventId     String   @unique @map("event_id")
+  eventType   String   @map("event_type")
+  payload     Json
+  processedAt DateTime? @map("processed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  business Business? @relation(fields: [businessId], references: [id])
+
+  @@map("webhook_events")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model NotificationLog {
+  id         String              @id @default(uuid())
+  businessId String              @map("business_id")
+  channel    NotificationChannel @default(EMAIL)
+  eventType  String              @map("event_type") // "appointment.created", "password.reset", ...
+  recipient  String
+  status     NotificationStatus  @default(PENDING)
+  error      String?
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("notification_logs")
+}
