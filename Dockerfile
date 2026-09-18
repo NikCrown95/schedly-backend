@@ -1,6 +1,7 @@
 # --- Stage 1: dependencies + build ---
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY prisma ./prisma
@@ -14,6 +15,7 @@ RUN npm run build
 # --- Stage 2: production dependencies only ---
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm install --omit=dev
@@ -22,6 +24,7 @@ RUN npx prisma generate
 # --- Stage 3: runtime ---
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 
 RUN groupadd --system schedly && useradd --system --gid schedly --create-home schedly
