@@ -1,5 +1,5 @@
 import { prisma } from "@shared/lib/prisma.js";
-import type { AvailabilityRuleInput, CreateExceptionInput } from "./availability.schema.js";
+import type { AvailabilityRuleInput } from "./availability.schema.js";
 
 export const availabilityRepository = {
   listRules(tenantId: string) {
@@ -37,7 +37,7 @@ export const availabilityRepository = {
     });
   },
 
-  createException(tenantId: string, input: CreateExceptionInput & { date: Date }) {
+  createException(tenantId: string, input: { date: Date; isClosed: boolean; startTime?: string; endTime?: string; reason?: string }) {
     return prisma.availabilityException.create({
       data: { ...input, businessId: tenantId },
     });
