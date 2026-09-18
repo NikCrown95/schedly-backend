@@ -87,7 +87,7 @@ export async function buildApp() {
   });
   await app.register(swaggerUi, { routePrefix: "/docs" });
 
-  registerErrorHandler(app);
+  registerErrorHandler(app as Parameters<typeof registerErrorHandler>[0]);
 
   app.get("/health", async () => ({ status: "ok" }));
 
