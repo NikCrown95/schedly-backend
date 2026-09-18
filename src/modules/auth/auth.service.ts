@@ -185,7 +185,7 @@ export const authService = {
     );
 
     await sendNotification({
-      businessId: null,
+      businessId: (await authRepository.findFirstBusinessForOwner(user.id))?.id ?? (() => { throw new AppError("BUSINESS_NOT_FOUND", "Business not found.", 404); })(),
       channel: "EMAIL",
       eventType: "auth.password_reset",
       recipient: user.email,
