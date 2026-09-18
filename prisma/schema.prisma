@@ -214,8 +214,9 @@ model Customer {
   firstName  String   @map("first_name")
   lastName   String?  @map("last_name")
   email      String?
-  phone      String?
-  notes      String?
+  phone           String?
+  normalizedPhone String?  @map("normalized_phone")
+  notes           String?
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -224,6 +225,7 @@ model Customer {
 
   @@index([businessId])
   @@index([businessId, email])
+  @@unique([businessId, normalizedPhone])
   @@map("customers")
 }
 
