@@ -39,7 +39,7 @@ CREATE TABLE "appointments" ("id" TEXT PRIMARY KEY,"business_id" TEXT NOT NULL R
 CREATE INDEX "appointments_business_id_start_at_idx" ON "appointments"("business_id","start_at");
 CREATE INDEX "appointments_business_id_status_idx" ON "appointments"("business_id","status");
 CREATE INDEX "appointments_customer_id_idx" ON "appointments"("customer_id");
-ALTER TABLE "appointments" ADD CONSTRAINT "appointments_no_overlap" EXCLUDE USING gist ("business_id" WITH =, tstzrange("start_at","end_at",'[)') WITH &&) WHERE ("status" IN ('PENDING','CONFIRMED'));
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_no_overlap" EXCLUDE USING gist ("business_id" WITH =, tsrange("start_at","end_at",'[)') WITH &&) WHERE ("status" IN ('PENDING','CONFIRMED'));
 
 CREATE TABLE "subscriptions" ("id" TEXT PRIMARY KEY,"business_id" TEXT NOT NULL UNIQUE REFERENCES "businesses"("id") ON DELETE CASCADE,"plan" "SubscriptionPlan" NOT NULL DEFAULT 'TRIAL',"status" "SubscriptionStatus" NOT NULL DEFAULT 'TRIALING',"trial_ends_at" TIMESTAMP(3),"current_period_end" TIMESTAMP(3),"cancel_at_period_end" BOOLEAN NOT NULL DEFAULT false,"stripe_customer_id" TEXT UNIQUE,"stripe_subscription_id" TEXT UNIQUE,"created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updated_at" TIMESTAMP(3) NOT NULL);
 CREATE TABLE "webhook_events" ("id" TEXT PRIMARY KEY,"business_id" TEXT REFERENCES "businesses"("id"),"provider" TEXT NOT NULL,"event_id" TEXT NOT NULL UNIQUE,"event_type" TEXT NOT NULL,"payload" JSONB NOT NULL,"processed_at" TIMESTAMP(3),"created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
