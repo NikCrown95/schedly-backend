@@ -6,7 +6,7 @@ import { sendEmailViaResend } from "./providers/resend.provider.js";
 import { renderEmailTemplate } from "./email-templates.js";
 
 export interface SendNotificationInput {
-  businessId: string | null;
+  businessId: string;
   channel: NotificationChannel;
   eventType: string; // es. "auth.verify_email", "appointment.created", ...
   recipient: string;
@@ -20,7 +20,7 @@ export interface SendNotificationInput {
 export async function sendNotification(input: SendNotificationInput): Promise<void> {
   const log = await prisma.notificationLog.create({
     data: {
-      businessId: input.businessId ?? undefined,
+      businessId: input.businessId,
       channel: input.channel,
       eventType: input.eventType,
       recipient: input.recipient,
