@@ -7,7 +7,6 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 
 import { env } from "@config/env.js";
-import { logger } from "@shared/lib/logger.js";
 import { redis } from "@shared/lib/redis.js";
 import { registerErrorHandler } from "@shared/middleware/error-handler.js";
 import { authRoutes } from "@modules/auth/auth.routes.js";
@@ -23,7 +22,21 @@ import { webhooksRoutes } from "@modules/payments/webhooks.routes.js";
 
 export async function buildApp() {
   const app = Fastify({
-    logger,
+    logger: {
+      level: env.NODE_ENV === "production" ? "info" : "debug",
+      redact: {
+        paths: [
+          "req.headers.authorization",
+          "*.password",
+          "*.passwordHash",
+          "*.password_hash",
+          "*.token",
+          "*.accessToken",
+          "*.refreshToken",
+        ],
+        censor: "[REDACTED]",
+      },
+    },
     trustProxy: true,
   });
 
