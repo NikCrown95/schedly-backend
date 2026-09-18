@@ -22,21 +22,7 @@ import { webhooksRoutes } from "@modules/payments/webhooks.routes.js";
 
 export async function buildApp() {
   const app = Fastify({
-    logger: {
-      level: env.NODE_ENV === "production" ? "info" : "debug",
-      redact: {
-        paths: [
-          "req.headers.authorization",
-          "*.password",
-          "*.passwordHash",
-          "*.password_hash",
-          "*.token",
-          "*.accessToken",
-          "*.refreshToken",
-        ],
-        censor: "[REDACTED]",
-      },
-    },
+    logger: true,
     trustProxy: true,
   });
 
