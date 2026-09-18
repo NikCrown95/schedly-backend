@@ -23,7 +23,7 @@ import { webhooksRoutes } from "@modules/payments/webhooks.routes.js";
 
 export async function buildApp() {
   const app = Fastify({
-    loggerInstance: logger,
+    logger,
     trustProxy: true,
   });
 
