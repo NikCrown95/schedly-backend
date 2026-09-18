@@ -1,11 +1,14 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import { AppError } from "@shared/lib/errors.js";
 import { env } from "@config/env.js";
 
 // Formato di risposta errore coerente in tutta l'API:
 // { "error": { "code": "...", "message": "...", "details"?: ... } }
-export function registerErrorHandler(app: FastifyInstance) {
+export function registerErrorHandler(app: {
+  setErrorHandler: (handler: (error: unknown, request: FastifyRequest, reply: FastifyReply) => unknown) => unknown;
+  setNotFoundHandler: (handler: (request: FastifyRequest, reply: FastifyReply) => unknown) => unknown;
+}) {
   app.setErrorHandler((error: unknown, request: FastifyRequest, reply: FastifyReply) => {
     if (error instanceof AppError) {
       request.log.warn({ code: error.code, err: error }, "handled application error");
