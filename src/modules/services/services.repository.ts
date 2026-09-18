@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@shared/lib/prisma.js";
 import type { ListServicesQuery } from "./services.schema.js";
 
@@ -26,11 +27,11 @@ export const servicesRepository = {
     return prisma.service.findFirst({ where: { id, businessId: tenantId } });
   },
 
-  create(tenantId: string, data: Record<string, unknown>) {
+  create(tenantId: string, data: Omit<Prisma.ServiceUncheckedCreateInput, "businessId" | "id" | "createdAt" | "updatedAt">) {
     return prisma.service.create({ data: { ...data, businessId: tenantId } });
   },
 
-  update(tenantId: string, id: string, data: Record<string, unknown>) {
+  update(tenantId: string, id: string, data: Prisma.ServiceUpdateManyMutationInput) {
     // updateMany invece di update: se l'id non appartiene al tenant, count sarà 0
     // invece di sollevare un errore Prisma generico — lo gestiamo esplicitamente nel service.
     return prisma.service.updateMany({ where: { id, businessId: tenantId }, data });
