@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@shared/lib/prisma.js";
 import type { ListCustomersQuery } from "./customers.schema.js";
 
@@ -47,11 +48,11 @@ export const customersRepository = {
     return prisma.customer.findFirst({ where: { businessId: tenantId, email } });
   },
 
-  create(tenantId: string, data: Record<string, unknown>) {
+  create(tenantId: string, data: Omit<Prisma.CustomerUncheckedCreateInput, "businessId" | "id" | "createdAt" | "updatedAt">) {
     return prisma.customer.create({ data: { ...data, businessId: tenantId } });
   },
 
-  update(tenantId: string, id: string, data: Record<string, unknown>) {
+  update(tenantId: string, id: string, data: Prisma.CustomerUpdateManyMutationInput) {
     return prisma.customer.updateMany({ where: { id, businessId: tenantId }, data });
   },
 
